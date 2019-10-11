@@ -52,6 +52,9 @@ TListChar   * inserir_inicio_list_char   (TListChar   *lista, char info);
 TListEndMem * inserir_final_list_end_mem (TListEndMem *lista, unsigned long int info);
 void liberar_list_char    (TListChar   *lista);
 void liberar_list_end_mem (TListEndMem *lista);
+void executa_map_dir        (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
+void executa_map_assoc      (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
+void executa_map_assoc_conj (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
 
 int main (int argc, char* argv[]) {
 
@@ -107,11 +110,13 @@ void executa_programa (unsigned long int tam_ram, unsigned long int tam_block, u
 	TListEndMem *end_mem_list, *end_mem_list_ptr_ini;
 	end_mem_list = end_mem_list_ptr_ini = leitura_arquivo(fp);
 	
-	while (end_mem_list) {
-		printf("%lu\n", end_mem_list->info);
-		end_mem_list = end_mem_list->prox;
-	}
-	
+	if(map == 1)
+		executa_map_dir(end_mem_list, tam_ram, tam_block, num_lines);
+	else if(map == 2)
+		executa_map_assoc(end_mem_list, tam_ram, tam_block, num_lines);
+	else if(map == 3)
+		executa_map_assoc_conj(end_mem_list, tam_ram, tam_block, num_lines);
+		
 	liberar_list_end_mem (end_mem_list_ptr_ini);
 
 }
@@ -214,4 +219,31 @@ void liberar_list_end_mem (TListEndMem *lista) {
 		liberar_list_end_mem (lista->prox);
 		free (lista);
 	}
+}
+
+void executa_map_dir (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
+
+	while (end_mem_list) {
+		printf("%lu\n", end_mem_list->info);
+		end_mem_list = end_mem_list->prox;
+	} 
+
+}
+
+void executa_map_assoc (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
+
+	while (end_mem_list) {
+		printf("%lu\n", end_mem_list->info);
+		end_mem_list = end_mem_list->prox;
+	}
+
+}
+
+void executa_map_assoc_conj (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
+
+	while (end_mem_list) {
+		printf("%lu\n", end_mem_list->info);
+		end_mem_list = end_mem_list->prox;
+	}
+
 }
