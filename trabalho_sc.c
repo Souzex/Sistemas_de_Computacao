@@ -94,10 +94,10 @@ void executa_programa (unsigned long int cache, short int map, FILE *fp) {
 	TListEndMem *end_mem_list, *end_mem_list_ptr_ini;
 	end_mem_list = end_mem_list_ptr_ini = leitura_arquivo(fp);
 	
-	//while (end_mem_list) {
-		//printf("%lu\n", end_mem_list->info);
-		//end_mem_list = end_mem_list->prox;
-	//}
+	while (end_mem_list) {
+		printf("%lu\n", end_mem_list->info);
+		end_mem_list = end_mem_list->prox;
+	}
 	
 	liberar_list_end_mem (end_mem_list_ptr_ini);
 
@@ -107,10 +107,9 @@ TListEndMem * leitura_arquivo (FILE *fp) {
 	
 	TListEndMem * end_mem_list = NULL;
 	char *linha = (char *) malloc(12); // "4294967295\n\0" de [0, 4.294.967.295]
-	char *linha_ptr_ini = NULL;
-	
-	while (fgets(linha,12,fp)) {
 		
+	while (fgets(linha,12,fp)) {
+	
 	// Em ASCII: TAB 9, LF ('\n') 10, CR ('\r') 13, Space (' ') 32.
 	// Tentativa de pegar ou ou outro erro de formatacao do arquivo de entrada.
 		if ((linha[0] == 9) || (linha[0] == 10) || (linha[0] == 13) || (linha[0] == 32))
@@ -125,19 +124,19 @@ TListEndMem * leitura_arquivo (FILE *fp) {
 		}		
 		
 		TListChar *digito_list = NULL;
-		linha_ptr_ini = linha;
+		char *linha_ptr = linha;
 		
 		while (1) {
 			
-			if (*linha != '\n') {
+			if (*linha_ptr != '\n') {
 				
-				if ((*linha >= 48) && (*linha <= 57)) {// Apenas numeros ('0' a '9')
-					digito_list = inserir_inicio_list_char (digito_list,*linha);
-					linha++;
-				} else if (*linha == 13) { // '/r' ou CR ou CARRIAGE RETURN
-					linha++;
+				if ((*linha_ptr >= 48) && (*linha_ptr <= 57)) {// Apenas numeros ('0' a '9')
+					digito_list = inserir_inicio_list_char(digito_list, *linha_ptr);
+					linha_ptr++;
+				} else if (*linha_ptr == 13) { // '/r' ou CR ou CARRIAGE RETURN
+					linha_ptr++;
 				} else {
-					printf("Número %s inválido! São válidos: dígitos numéricos e números de 0 a 4.294.967.295!\n", linha_ptr_ini);
+					printf("Número %s inválido! São válidos: dígitos numéricos e números de 0 a 4.294.967.295!\n", linha);
 					break;
 				}
 			} else {
@@ -148,12 +147,13 @@ TListEndMem * leitura_arquivo (FILE *fp) {
 					pot10*=10;
 					digito_list = digito_list->prox;
 				}
-				end_mem_list = inserir_final_list_end_mem (end_mem_list,end_mem);
-				liberar_list_char (digito_list); 
+				end_mem_list = inserir_final_list_end_mem(end_mem_list, end_mem);
+				liberar_list_char (digito_list);
 				break;
 			}
 		}
 	}
+	if(linha) free(linha);
 	return end_mem_list;
 }
 
@@ -161,11 +161,12 @@ TListChar * inserir_inicio_list_char (TListChar *lista, char info) {
 
 	TListChar *novo = (TListChar *) malloc(sizeof(TListChar));
 	novo->info = info;
-	if(lista)
-		novo->prox = lista;
-	else	
-		novo->prox = NULL;
 	
+	if(lista) 
+		novo->prox = lista;
+	else
+		novo->prox = NULL;
+		
 	return novo;
 }
 
