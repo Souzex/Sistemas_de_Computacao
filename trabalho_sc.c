@@ -46,7 +46,7 @@ typedef struct list_end_mem {
 	struct list_end_mem *prox;
 } TListEndMem;
 
-void executa_programa (unsigned long int cache, short int map, FILE *fp);
+void executa_programa (unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, unsigned short int map, FILE *fp);
 TListEndMem * leitura_arquivo (FILE *fp);
 TListChar   * inserir_inicio_list_char   (TListChar   *lista, char info);
 TListEndMem * inserir_final_list_end_mem (TListEndMem *lista, unsigned long int info);
@@ -55,41 +55,54 @@ void liberar_list_end_mem (TListEndMem *lista);
 
 int main (int argc, char* argv[]) {
 
-	if (argc == 4) {
+	if (argc == 6) {
 		
-		unsigned long int cache = atoi(argv[1]); // printf("1o argumento: %d\n", cache); // [0, 4.294.967.295] 
-		short int map           = atoi(argv[2]); // printf("2o argumento: %d\n", map);
-		char *file              = argv[3];       // printf("3o argumento: %s\n", file);
+		unsigned long int tam_ram   = atoi(argv[1]); // [0, 4.294.967.295]
+		unsigned long int tam_block = atoi(argv[2]); // [0, 4.294.967.295]
+		unsigned long int num_lines = atoi(argv[3]); // [0, 4.294.967.295] 
+		unsigned short int map      = atoi(argv[4]); // [0, 65,535] 
+		char *file                  = argv[5];
 		
-		if (cache == 0) {
+		if (tam_ram == 0) {
+			
+			printf("Valor do tamanho da RAM inválido: %s\n", argv[1]);
+		
+		} else if (tam_block == 0) {
+			
+			printf("Valor do tamanho de cada bloco da RAM (e da cache) inválido: %s\n", argv[2]);
+		
+		} else if (num_lines == 0) {
 
-			printf("Valor de cache (número total de páginas) inválido: %s\n", argv[1]);
+			printf("Valor do número total de quadros da cache inválido: %s\n", argv[3]);
 
 		} else if ((map != 1) && (map != 2) && (map != 3)){
 			
-			printf("Valor de map (esquema de mapeamento) inválido: %s\n", argv[2]);
+			printf("Valor de map (esquema de mapeamento) inválido: %s\n", argv[4]);
 		
 		} else {
 		
-			FILE *fp = fopen (file, "r");
+			FILE *fp = fopen(file, "r");
 			if (fp) 				
-				executa_programa (cache, map, fp);
+				executa_programa (tam_ram, tam_block, num_lines, map, fp);
 			else
-				printf("Valor de file (nome do arquivo) inválido: %s\n", argv[3]);
+				printf("Valor de file (nome do arquivo) inválido: %s\n", argv[5]);
 			fclose(fp);
 		}
 		
 	} else {
 		
 		printf("Quantidade de parâmetros inválida!\n");
-		printf("São necessários 3 parâmetros:\n");
-		printf("- cache (valor inteiro): Capacidade total da memória cache em número total de páginas.\n");
+		printf("São necessários 5 parâmetros:\n");
+		printf("- tam_ram (valor inteiro): Tamanho da memória RAM em Bytes.\n");
+		printf("- tam_block (valor inteiro): Tamanho do bloco tanto na memória RAM quanto na CACHE, em Bytes.\n");
+		printf("- num_lines (valor inteiro): Quantidade de quadros (ou linhas) da memória CACHE.\n");
 		printf("- map (valor inteiro): Esquema de mapeamento (1 - direto; 2 - associativo; 3 - associativo por conjunto).\n");
 		printf("- file (valor cadeia de caracteres): Nome do arquivo de entrada a ser lido pelo programa.\n");
+			
 	}
 }
 
-void executa_programa (unsigned long int cache, short int map, FILE *fp) {
+void executa_programa (unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, unsigned short int map, FILE *fp) {
 
 	TListEndMem *end_mem_list, *end_mem_list_ptr_ini;
 	end_mem_list = end_mem_list_ptr_ini = leitura_arquivo(fp);
