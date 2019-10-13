@@ -41,20 +41,43 @@ typedef struct list_char {
 	struct list_char *prox;
 } TListChar;
 
-typedef struct list_end_mem {
+typedef struct list_long_int {
 	unsigned long int info;
-	struct list_end_mem *prox;
-} TListEndMem;
+	struct list_long_int *prox;
+} TListLongInt;
+
+typedef struct node {
+    unsigned long int info;
+    struct node *prox;
+} TNO;
+
+typedef struct fila {
+    TNO *ini, *fim;
+} TFila;
+
+typedef struct fila TFila;
 
 void executa_programa (unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, unsigned short int map, FILE *fp);
-TListEndMem * leitura_arquivo (FILE *fp);
-TListChar   * inserir_inicio_list_char   (TListChar   *lista, char info);
-TListEndMem * inserir_final_list_end_mem (TListEndMem *lista, unsigned long int info);
-void liberar_list_char    (TListChar   *lista);
-void liberar_list_end_mem (TListEndMem *lista);
-void executa_map_dir        (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
-void executa_map_assoc      (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
-void executa_map_assoc_conj (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
+TListLongInt * leitura_arquivo (FILE *fp);
+TListChar    * inserir_inicio_list_char    (TListChar    *lista, char info);
+TListLongInt * inserir_final_list_long_int (TListLongInt *lista, unsigned long int info);
+TListLongInt * remover_list_long_int       (TListLongInt *lista, unsigned long int info);
+void liberar_list_char     (TListChar   *lista);
+void liberar_list_long_int (TListLongInt *lista);
+void executa_map_dir        (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
+void executa_map_assoc      (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
+void executa_map_assoc_conj (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
+void randomico(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache);
+void fifo(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache);
+void lfu(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache);
+void lru(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache);
+void grava_saida(const char *politica, unsigned long int num_lines, unsigned long int tag_block, unsigned long int tam_block, char **cache);
+
+TFila* inicializa_fila (void);
+void insere (TFila *f, unsigned long int elem);
+unsigned long int retira (TFila *f);
+void libera_fila (TFila *f);
+int vazia_fila (TFila *f);
 
 int main (int argc, char* argv[]) {
 
@@ -66,15 +89,15 @@ int main (int argc, char* argv[]) {
 		unsigned short int map      = atoi(argv[4]); // [0, 65,535] 
 		char *file                  = argv[5];
 		
-		if (tam_ram == 0) {
+		if (tam_ram <= 0) {
 			
 			printf("Valor do tamanho da RAM inválido: %s\n", argv[1]);
 		
-		} else if (tam_block == 0) {
+		} else if (tam_block <= 0) {
 			
 			printf("Valor do tamanho de cada bloco da RAM (e da cache) inválido: %s\n", argv[2]);
 		
-		} else if (num_lines == 0) {
+		} else if (num_lines <= 0) {
 
 			printf("Valor do número total de quadros da cache inválido: %s\n", argv[3]);
 
@@ -107,7 +130,7 @@ int main (int argc, char* argv[]) {
 
 void executa_programa (unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, unsigned short int map, FILE *fp) {
 
-	TListEndMem *end_mem_list, *end_mem_list_ptr_ini;
+	TListLongInt *end_mem_list, *end_mem_list_ptr_ini;
 	end_mem_list = end_mem_list_ptr_ini = leitura_arquivo(fp);
 	
 	if(map == 1)
@@ -117,13 +140,13 @@ void executa_programa (unsigned long int tam_ram, unsigned long int tam_block, u
 	else if(map == 3)
 		executa_map_assoc_conj(end_mem_list, tam_ram, tam_block, num_lines);
 		
-	liberar_list_end_mem (end_mem_list_ptr_ini);
+	liberar_list_long_int(end_mem_list_ptr_ini);
 
 }
 
-TListEndMem * leitura_arquivo (FILE *fp) {
+TListLongInt * leitura_arquivo (FILE *fp) {
 	
-	TListEndMem * end_mem_list = NULL;
+	TListLongInt * end_mem_list = NULL;
 	char *linha = (char *) malloc(12); // "4294967295\n\0" de [0, 4.294.967.295]
 		
 	while (fgets(linha,12,fp)) {
@@ -165,7 +188,7 @@ TListEndMem * leitura_arquivo (FILE *fp) {
 					pot10*=10;
 					digito_list = digito_list->prox;
 				}
-				end_mem_list = inserir_final_list_end_mem(end_mem_list, end_mem);
+				end_mem_list = inserir_final_list_long_int(end_mem_list, end_mem);
 				liberar_list_char (digito_list);
 				break;
 			}
@@ -188,21 +211,46 @@ TListChar * inserir_inicio_list_char (TListChar *lista, char info) {
 	return novo;
 }
 
-TListEndMem * inserir_final_list_end_mem (TListEndMem *lista, unsigned long int info) {
+TListLongInt * inserir_final_list_long_int (TListLongInt *lista, unsigned long int info) {
 
-	TListEndMem *novo = (TListEndMem *) malloc(sizeof(TListEndMem));
+	TListLongInt *novo = (TListLongInt *) malloc(sizeof(TListLongInt));
 	novo->info = info;
 	novo->prox = NULL;
 
 	if (!lista)
 		return novo;
 
-	TListEndMem *aux = lista;
+	TListLongInt *aux = lista;
 	while (aux->prox)
 		aux = aux->prox;
 	aux->prox = novo;
 
 	return lista;
+}
+
+TListLongInt *remover_list_long_int (TListLongInt *lista, unsigned long int info) {
+
+	if(!lista) return NULL;
+	
+	TListLongInt *head = lista;
+	TListLongInt *ant  = NULL;
+	
+	while(lista) {
+		if(info == lista->info) {
+			if(ant) {
+				ant->prox = lista->prox;
+				free(lista);
+			} else {
+				head = lista->prox;
+				free(lista);
+			}
+			break;
+		}
+		ant = lista;
+		lista = lista->prox;
+	}
+	
+	return head;
 }
 
 void liberar_list_char (TListChar *lista) {
@@ -213,37 +261,362 @@ void liberar_list_char (TListChar *lista) {
 	}
 }
 
-void liberar_list_end_mem (TListEndMem *lista) {
+void liberar_list_long_int (TListLongInt *lista) {
 
 	if (lista) {
-		liberar_list_end_mem (lista->prox);
+		liberar_list_long_int (lista->prox);
 		free (lista);
 	}
 }
 
-void executa_map_dir (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
+void executa_map_dir (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
+
+	unsigned long int tam_cache = tam_block * num_lines;
+	unsigned long int num_block = tam_ram / tam_block;
+	unsigned long int tag_block = tam_ram / tam_cache;
+	char cache[tag_block][num_lines]; //char cache[tag_block][num_lines][tam_block];
+	unsigned long int hits = 0;
+	unsigned long int acessos = 0;
+	
+	unsigned long int i, j;
+	for(i=0; i<tag_block; i++)
+		for(j=0; j<num_lines; j++)
+			cache[i][j] = 0;
 
 	while (end_mem_list) {
-		printf("%lu\n", end_mem_list->info);
+		
+		unsigned long int quadro = ((end_mem_list->info)/tam_block) % num_lines;
+		unsigned long int tag    = ((end_mem_list->info)/tam_block) / num_lines;
+		acessos++;
+		if (cache[tag][quadro] == '1') {// CACHE HIT
+			printf("HIT\n");
+			hits++;
+		}
+		else {// CACHE MISS
+			printf("MISS\n");
+			for(i=0; i<tag_block; i++) cache[i][quadro] = '0';
+			cache[tag][quadro] = '1'; 
+		}
+		
+		for(j=0; j<num_lines; j++) {
+			printf("quadro %lu: ",j);
+			for(i=0; i<tag_block; i++) {
+				if (cache[i][j] == '1') {
+					unsigned long int end = i*tag_block + j*tam_block;
+					printf("end. %lu a %lu", end, end+tam_block-1);
+				}
+			}
+			printf("\n");
+		}
+		
 		end_mem_list = end_mem_list->prox;
 	} 
 
 }
 
-void executa_map_assoc (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
+void executa_map_assoc (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
 
-	while (end_mem_list) {
-		printf("%lu\n", end_mem_list->info);
-		end_mem_list = end_mem_list->prox;
+	unsigned long int tam_cache = tam_block * num_lines;
+	unsigned long int num_block = tam_ram / tam_block;
+	
+	unsigned long int i, j;
+	
+	char **cache_rand = (char **) malloc (num_block*sizeof(char *));
+	for(i=0; i<num_block; i++)
+		cache_rand[i] = (char *) malloc (num_lines*sizeof(char));
+	
+	char **cache_fifo = (char **) malloc (num_block*sizeof(char *));
+	for(i=0; i<num_block; i++)
+		cache_fifo[i] = (char *) malloc (num_lines*sizeof(char));
+	
+	char **cache_lru = (char **) malloc (num_block*sizeof(char *));
+	for(i=0; i<num_block; i++)
+		cache_lru[i] = (char *) malloc (num_lines*sizeof(char));
+	
+	char **cache_lfu = (char **) malloc (num_block*sizeof(char *));
+	for(i=0; i<num_block; i++)
+		cache_lfu[i] = (char *) malloc (num_lines*sizeof(char));
+		
+	for(i=0; i<num_block; i++)
+		for(j=0; j<num_lines; j++) {
+			cache_rand[i][j] = 0;
+			cache_fifo[i][j] = 0;
+			cache_lru[i][j]  = 0;
+			cache_lfu[i][j]  = 0;
+		}
+	
+	randomico(end_mem_list, tam_block, num_lines, num_block, cache_rand);
+	fifo(end_mem_list, tam_block, num_lines, num_block, cache_fifo);
+	lru(end_mem_list, tam_block, num_lines, num_block, cache_lfu);
+	lfu(end_mem_list, tam_block, num_lines, num_block, cache_lru);
+	
+	for(i=0; i<num_block; i++) {
+		free(cache_rand[i]);
+		free(cache_fifo[i]);
+		free(cache_lru[i]);
+		free(cache_lfu[i]);
 	}
+	free(cache_rand);
+	free(cache_fifo);
+	free(cache_lru);
+	free(cache_lfu);
+}
+
+void executa_map_assoc_conj (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
 
 }
 
-void executa_map_assoc_conj (TListEndMem *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
+void randomico(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache) {
+
+	unsigned long int i;
+
+	unsigned long int hits = 0;
+	unsigned long int miss = 0;
+	unsigned long int acessos = 0;
 
 	while (end_mem_list) {
-		printf("%lu\n", end_mem_list->info);
+
+		unsigned long int quadro = 0;
+		unsigned long int hits_ant = hits;
+		unsigned long int tag = (end_mem_list->info)/tam_block;
+	
+		acessos++; 
+	
+		for(i=0; i<num_lines; i++) {
+			
+			if (cache[tag][i] == '1') {// CACHE HIT
+				printf("HIT\n");
+				hits++;
+				break;
+			}
+		}
+	
+		if (hits_ant == hits) { // CACHE MISS
+			printf("MISS\n");
+			miss++;
+			if (miss > num_lines) {
+				quadro = rand()%num_lines;
+				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
+				cache[tag][quadro] = '1';
+			} else {
+				cache[tag][miss-1] = '1';
+			}
+		}	
+		
+		grava_saida("RANDOM", num_lines, num_block, tam_block, cache);
+		end_mem_list = end_mem_list->prox;
+	} 
+}
+
+void fifo(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache) {
+	
+	TFila *fila = inicializa_fila();
+	
+	unsigned long int i;
+	
+	unsigned long int hits = 0;
+	unsigned long int miss = 0;
+	unsigned long int acessos = 0;
+
+	while (end_mem_list) {
+		
+		unsigned long int quadro = 0;
+		unsigned long int hits_ant = hits;
+		unsigned long int tag = (end_mem_list->info)/tam_block;
+		
+		acessos++; 
+	
+		for(i=0; i<num_lines; i++) {
+			
+			if (cache[tag][i] == '1') {// CACHE HIT
+				printf("HIT\n");
+				hits++;
+				break;
+			}
+		}
+		
+		if (hits_ant == hits) { // CACHE MISS
+			printf("MISS\n");
+			miss++;
+			if (miss > num_lines) {
+				quadro = retira(fila);
+				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
+				cache[tag][quadro] = '1';
+				insere(fila, quadro);
+			} else {
+				cache[tag][miss-1] = '1';
+				insere(fila, miss-1);
+			}
+		}
+		
+		grava_saida("FIFO", num_lines, num_block, tam_block, cache);
 		end_mem_list = end_mem_list->prox;
 	}
+	libera_fila(fila);
+}
 
+void lru(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache) {
+	
+	TListLongInt *lru_list = NULL;
+	
+	unsigned long int i;
+	
+	unsigned long int hits = 0;
+	unsigned long int miss = 0;
+	unsigned long int acessos = 0;
+
+	while (end_mem_list) {
+		
+		unsigned long int quadro = 0;
+		unsigned long int hits_ant = hits;
+		unsigned long int tag = (end_mem_list->info)/tam_block;
+		
+		acessos++; 
+	
+		for(i=0; i<num_lines; i++) {
+			
+			if (cache[tag][i] == '1') {// CACHE HIT
+				printf("HIT\n");
+				hits++;
+				lru_list = remover_list_long_int(lru_list,i);
+				lru_list = inserir_final_list_long_int(lru_list,i);
+				break;
+			}
+		}
+		
+		if (hits_ant == hits) { // CACHE MISS
+			printf("MISS\n");
+			miss++;
+			if (miss > num_lines) {				
+				quadro = lru_list->info;
+				lru_list = remover_list_long_int(lru_list,lru_list->info);
+				lru_list = inserir_final_list_long_int(lru_list,lru_list->info);
+				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
+				cache[tag][quadro] = '1';
+			} else {
+				lru_list = inserir_final_list_long_int(lru_list,miss-1);
+				cache[tag][miss-1] = '1';
+			}
+		}
+		
+		grava_saida("LRU", num_lines, num_block, tam_block, cache);
+		end_mem_list = end_mem_list->prox;
+	}
+	liberar_list_long_int(lru_list);	
+}
+
+void lfu(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache) {
+	
+	unsigned long int i;
+	
+	unsigned long int contador[num_lines];
+	for(i=0; i<num_lines; i++) contador[i] = 0;
+		
+	unsigned long int hits = 0;
+	unsigned long int miss = 0;
+	unsigned long int acessos = 0;
+	
+	while (end_mem_list) {
+		
+		unsigned long int quadro = 0;
+		unsigned long int hits_ant = hits;
+		unsigned long int tag = (end_mem_list->info)/tam_block;
+		
+		acessos++; 
+	
+		for(i=0; i<num_lines; i++) {
+			
+			if (cache[tag][i] == '1') {// CACHE HIT
+				printf("HIT\n");
+				hits++;
+				contador[i]++;
+				break;
+			}
+		}
+	
+		if (hits_ant == hits) { // CACHE MISS
+			printf("MISS\n");
+			miss++;
+			if (miss > num_lines) {				
+				unsigned long int max=0;
+				for(i=0; i<num_lines; i++)
+					if(contador[i] > max) {
+						max = contador[i];
+						quadro = i;
+					}
+				contador[quadro] = 0;
+				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
+				cache[tag][quadro] = '1';
+			} else {
+				contador[miss-1]++;;
+				cache[tag][miss-1] = '1';
+			}
+		}	
+	
+		grava_saida("LFU", num_lines, num_block, tam_block, cache);
+		end_mem_list = end_mem_list->prox;
+	}
+	
+}
+
+void grava_saida(const char *politica, unsigned long int num_lines, unsigned long int tag_block, unsigned long int tam_block, char **cache) {
+	
+	unsigned long int i, j;
+	printf("%s\n", politica);
+	for(j=0; j<num_lines; j++) {
+		printf("quadro %lu: ",j);
+		for(i=0; i<tag_block; i++) {
+			if (cache[i][j] == '1') {
+				unsigned long int end = (i*tam_block);
+				printf("end. %lu a %lu", end, end+tam_block-1);
+			}
+		}
+		printf("\n");
+	}	
+}
+
+TFila* inicializa_fila (void) { 
+
+    TFila *f = (TFila *) malloc(sizeof(TFila));
+    f->ini = f->fim = NULL;
+}
+
+void insere (TFila *f, unsigned long int elem) {
+
+    TNO *novo = (TNO *) malloc (sizeof(TNO));
+    novo->info = elem;
+    novo->prox = NULL;
+    if (vazia_fila(f))
+        f->ini = f->fim = novo;
+    else {
+        f->fim->prox = novo;
+        f->fim = novo;
+    }
+}
+
+unsigned long int retira (TFila *f) {
+
+    if (vazia_fila(f)) exit(1);
+    int resp = f->ini->info;
+    TNO *q = f->ini;
+    f->ini = f->ini->prox;
+    if(!f->ini) f->fim = NULL;
+    free (q);
+    return resp;
+}
+
+void libera_fila (TFila *f) { 
+
+    TNO *q = f->ini, *t;
+    while (q) {
+        t = q;
+        q = q->prox;
+        free (t);
+    }
+    free (f);    
+}
+
+int vazia_fila (TFila *f) { 
+
+    return f->ini == NULL;
 }
