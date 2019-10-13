@@ -1,4 +1,4 @@
-/*
+/* 
 Lista de features do programa
 1. Main c/ tratamento para argumentos ARGV e ARGC - trabalho_sc cache map file
 1.1 cache: Capacidade total da memória cache em número total de páginas.
@@ -35,6 +35,8 @@ Tam. End. RAM: Número de bits para endereçamento de uma palavra na memória RA
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <math.h>
 
 typedef struct list_char {
 	char info;
@@ -57,21 +59,22 @@ typedef struct fila {
 
 typedef struct fila TFila;
 
-void executa_programa (unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, unsigned short int map, FILE *fp);
-TListLongInt * leitura_arquivo (FILE *fp);
+void executa_programa (unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, unsigned short int map, FILE *arq_ent, FILE *arq_sai);
+void executa_map_dir        (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, FILE *arq_saida);
+void executa_map_assoc      (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, FILE *arq_saida);
+void executa_map_assoc_conj (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, FILE *arq_saida);
+void randomico(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache, FILE *arq_saida);
+void fifo(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache, FILE *arq_saida);
+void lfu(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache, FILE *arq_saida);
+void lru(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache, FILE *arq_saida);
+TListLongInt * leitura_arquivo (FILE *arq_entrada);
+void grava_saida(const char *mapeamento, const char *politica, unsigned long int endereco, char *miss_hit, unsigned long int num_lines, unsigned long int tam_block, unsigned long int num_block, unsigned long int tag_block, char **cache, FILE *arq_saida);
+
 TListChar    * inserir_inicio_list_char    (TListChar    *lista, char info);
 TListLongInt * inserir_final_list_long_int (TListLongInt *lista, unsigned long int info);
 TListLongInt * remover_list_long_int       (TListLongInt *lista, unsigned long int info);
 void liberar_list_char     (TListChar   *lista);
 void liberar_list_long_int (TListLongInt *lista);
-void executa_map_dir        (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
-void executa_map_assoc      (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
-void executa_map_assoc_conj (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines);
-void randomico(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache);
-void fifo(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache);
-void lfu(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache);
-void lru(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache);
-void grava_saida(const char *politica, unsigned long int num_lines, unsigned long int tag_block, unsigned long int tam_block, char **cache);
 
 TFila* inicializa_fila (void);
 void insere (TFila *f, unsigned long int elem);
@@ -87,7 +90,28 @@ int main (int argc, char* argv[]) {
 		unsigned long int tam_block = atoi(argv[2]); // [0, 4.294.967.295]
 		unsigned long int num_lines = atoi(argv[3]); // [0, 4.294.967.295] 
 		unsigned short int map      = atoi(argv[4]); // [0, 65,535] 
-		char *file                  = argv[5];
+		char *nome_arq_ent          = argv[5];
+		char nome_arq_sai[200];
+		strcpy(nome_arq_sai,"");
+		strcat(nome_arq_sai,"SAIDA_");
+		strcat(nome_arq_sai,argv[5]);
+		strcat(nome_arq_sai,"-");
+		strcat(nome_arq_sai,argv[1]);
+		strcat(nome_arq_sai,"-");
+		strcat(nome_arq_sai,argv[2]);
+		strcat(nome_arq_sai,"-");
+		strcat(nome_arq_sai,argv[3]);
+		strcat(nome_arq_sai,"-");
+		strcat(nome_arq_sai,argv[4]);
+		strcat(nome_arq_sai,"_");
+		
+		time_t t = time(NULL);
+		struct tm tm = *localtime(&t);
+		char timestamp[16];
+		sprintf(timestamp, "%d%d%d_%d%d%d", tm.tm_year + 1900, tm.tm_mon + 1,tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+		
+		strcat(nome_arq_sai,timestamp);
+		strcat(nome_arq_sai,".guto");		
 		
 		if (tam_ram <= 0) {
 			
@@ -107,12 +131,14 @@ int main (int argc, char* argv[]) {
 		
 		} else {
 		
-			FILE *fp = fopen(file, "r");
-			if (fp) 				
-				executa_programa (tam_ram, tam_block, num_lines, map, fp);
+			FILE *arq_entrada = fopen(nome_arq_ent, "r");
+			FILE *arq_saida   = fopen(nome_arq_sai, "w");
+			if (arq_entrada && arq_saida) 				
+				executa_programa (tam_ram, tam_block, num_lines, map, arq_entrada, arq_saida);
 			else
 				printf("Valor de file (nome do arquivo) inválido: %s\n", argv[5]);
-			fclose(fp);
+			fclose(arq_entrada);
+			fclose(arq_saida);
 		}
 		
 	} else {
@@ -128,28 +154,28 @@ int main (int argc, char* argv[]) {
 	}
 }
 
-void executa_programa (unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, unsigned short int map, FILE *fp) {
-
+void executa_programa (unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, unsigned short int map, FILE *arq_ent, FILE *arq_sai) {
+	
 	TListLongInt *end_mem_list, *end_mem_list_ptr_ini;
-	end_mem_list = end_mem_list_ptr_ini = leitura_arquivo(fp);
+	end_mem_list = end_mem_list_ptr_ini = leitura_arquivo(arq_ent);
 	
 	if(map == 1)
-		executa_map_dir(end_mem_list, tam_ram, tam_block, num_lines);
+		executa_map_dir(end_mem_list, tam_ram, tam_block, num_lines, arq_sai);
 	else if(map == 2)
-		executa_map_assoc(end_mem_list, tam_ram, tam_block, num_lines);
+		executa_map_assoc(end_mem_list, tam_ram, tam_block, num_lines, arq_sai);
 	else if(map == 3)
-		executa_map_assoc_conj(end_mem_list, tam_ram, tam_block, num_lines);
+		executa_map_assoc_conj(end_mem_list, tam_ram, tam_block, num_lines, arq_sai);
 		
 	liberar_list_long_int(end_mem_list_ptr_ini);
 
 }
 
-TListLongInt * leitura_arquivo (FILE *fp) {
+TListLongInt * leitura_arquivo (FILE *arq_entrada) {
 	
 	TListLongInt * end_mem_list = NULL;
 	char *linha = (char *) malloc(12); // "4294967295\n\0" de [0, 4.294.967.295]
 		
-	while (fgets(linha,12,fp)) {
+	while (fgets(linha,12,arq_entrada)) {
 	
 	// Em ASCII: TAB 9, LF ('\n') 10, CR ('\r') 13, Space (' ') 32.
 	// Tentativa de pegar ou ou outro erro de formatacao do arquivo de entrada.
@@ -157,7 +183,7 @@ TListLongInt * leitura_arquivo (FILE *fp) {
 			break;
 
 	// Com fputs(), o EOF eh na mesma linha do ultimo registro: colocar '\n' para ficar igual aos demais registros.
-		if (feof(fp)) {
+		if (feof(arq_entrada)) {
 			int i;
 			for (i=0; linha[i] != '\0'; i++);
 			linha[i] = '\n';
@@ -196,6 +222,369 @@ TListLongInt * leitura_arquivo (FILE *fp) {
 	}
 	if(linha) free(linha);
 	return end_mem_list;
+}
+
+void executa_map_dir (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, FILE *arq_sai) {
+
+	unsigned long int tam_cache = tam_block * num_lines;
+	unsigned long int num_block = tam_ram / tam_block;
+	unsigned long int tag_block = tam_ram / tam_cache;
+	unsigned long int hits = 0;
+	unsigned long int acessos = 0;
+	
+	unsigned long int i, j;
+	
+	char **cache = (char **) malloc (tag_block*sizeof(char *));
+	for(i=0; i<tag_block; i++)
+		cache[i] = (char *) malloc (num_lines*sizeof(char));
+	
+	for(i=0; i<tag_block; i++)
+		for(j=0; j<num_lines; j++)
+			cache[i][j] = 0;
+
+	while (end_mem_list) {
+		
+		char miss_hit[5];
+		unsigned long int quadro = ((end_mem_list->info)/tam_block) % num_lines;
+		unsigned long int tag    = ((end_mem_list->info)/tam_block) / num_lines;
+		
+		acessos++;
+		
+		if (cache[tag][quadro] == '1') {// CACHE HIT
+			strcpy(miss_hit,"HIT");
+			hits++;
+		} else {// CACHE MISS
+			strcpy(miss_hit,"MISS");
+			for(i=0; i<tag_block; i++) cache[i][quadro] = '0';
+			cache[tag][quadro] = '1'; 
+		}
+		
+		grava_saida("DIRETO", "NONE", end_mem_list->info, miss_hit, num_lines, tam_block, num_block, tag_block, cache, arq_sai);		
+		end_mem_list = end_mem_list->prox;
+	} 
+
+}
+
+void executa_map_assoc (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, FILE *arq_sai) {
+
+	unsigned long int tam_cache = tam_block * num_lines;
+	unsigned long int num_block = tam_ram / tam_block;
+	
+	unsigned long int i, j;
+	
+	char **cache_rand = (char **) malloc (num_block*sizeof(char *));
+	for(i=0; i<num_block; i++)
+		cache_rand[i] = (char *) malloc (num_lines*sizeof(char));
+	
+	char **cache_fifo = (char **) malloc (num_block*sizeof(char *));
+	for(i=0; i<num_block; i++)
+		cache_fifo[i] = (char *) malloc (num_lines*sizeof(char));
+	
+	char **cache_lru = (char **) malloc (num_block*sizeof(char *));
+	for(i=0; i<num_block; i++)
+		cache_lru[i] = (char *) malloc (num_lines*sizeof(char));
+	
+	char **cache_lfu = (char **) malloc (num_block*sizeof(char *));
+	for(i=0; i<num_block; i++)
+		cache_lfu[i] = (char *) malloc (num_lines*sizeof(char));
+		
+	for(i=0; i<num_block; i++)
+		for(j=0; j<num_lines; j++) {
+			cache_rand[i][j] = 0;
+			cache_fifo[i][j] = 0;
+			cache_lru[i][j]  = 0;
+			cache_lfu[i][j]  = 0;
+		}
+	
+	randomico(end_mem_list, tam_block, num_lines, num_block, cache_rand, arq_sai);
+	fifo(end_mem_list, tam_block, num_lines, num_block, cache_fifo, arq_sai);
+	lru(end_mem_list, tam_block, num_lines, num_block, cache_lfu, arq_sai);
+	lfu(end_mem_list, tam_block, num_lines, num_block, cache_lru, arq_sai);
+	
+	for(i=0; i<num_block; i++) {
+		free(cache_rand[i]);
+		free(cache_fifo[i]);
+		free(cache_lru[i]);
+		free(cache_lfu[i]);
+	}
+	free(cache_rand);
+	free(cache_fifo);
+	free(cache_lru);
+	free(cache_lfu);
+}
+
+void executa_map_assoc_conj (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines, FILE *arq_sai) {
+
+}
+
+void randomico(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache, FILE *arq_sai) {
+
+	unsigned long int i;
+
+	unsigned long int hits = 0;
+	unsigned long int miss = 0;
+	unsigned long int acessos = 0;
+
+	while (end_mem_list) {
+
+		char miss_hit[5];
+		unsigned long int quadro = 0;
+		unsigned long int hits_ant = hits;
+		unsigned long int tag = (end_mem_list->info)/tam_block;
+	
+		acessos++; 
+	
+		for(i=0; i<num_lines; i++) {
+			
+			if (cache[tag][i] == '1') {// CACHE HIT
+				strcpy(miss_hit,"HIT");
+				hits++;
+				break;
+			}
+		}
+	
+		if (hits_ant == hits) { // CACHE MISS
+			strcpy(miss_hit,"MISS");
+			miss++;
+			if (miss > num_lines) {
+				quadro = rand()%num_lines;
+				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
+				cache[tag][quadro] = '1';
+			} else {
+				cache[tag][miss-1] = '1';
+			}
+		}	
+		
+		grava_saida("ASSOCIATIVO", "RANDOM", end_mem_list->info, miss_hit, num_lines, tam_block, num_block, 0, cache, arq_sai);
+		end_mem_list = end_mem_list->prox;
+	} 
+}
+
+void fifo(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache, FILE *arq_sai) {
+	
+	TFila *fila = inicializa_fila();
+	
+	unsigned long int i;
+	
+	unsigned long int hits = 0;
+	unsigned long int miss = 0;
+	unsigned long int acessos = 0;
+
+	while (end_mem_list) {
+		
+		char miss_hit[5];
+		unsigned long int quadro = 0;
+		unsigned long int hits_ant = hits;
+		unsigned long int tag = (end_mem_list->info)/tam_block;
+		
+		acessos++; 
+	
+		for(i=0; i<num_lines; i++) {
+			
+			if (cache[tag][i] == '1') {// CACHE HIT
+				strcpy(miss_hit,"HIT");
+				hits++;
+				break;
+			}
+		}
+		
+		if (hits_ant == hits) { // CACHE MISS
+			strcpy(miss_hit,"MISS");
+			miss++;
+			if (miss > num_lines) {
+				quadro = retira(fila);
+				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
+				cache[tag][quadro] = '1';
+				insere(fila, quadro);
+			} else {
+				cache[tag][miss-1] = '1';
+				insere(fila, miss-1);
+			}
+		}
+		
+		grava_saida("ASSOCIATIVO", "FIFO", end_mem_list->info, miss_hit, num_lines, tam_block, num_block, 0, cache, arq_sai);
+		end_mem_list = end_mem_list->prox;
+	}
+	libera_fila(fila);
+}
+
+void lru(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache, FILE *arq_sai) {
+	
+	TListLongInt *lru_list = NULL;
+	
+	unsigned long int i;
+	
+	unsigned long int hits = 0;
+	unsigned long int miss = 0;
+	unsigned long int acessos = 0;
+
+	while (end_mem_list) {
+		
+		char miss_hit[5];
+		unsigned long int quadro = 0;
+		unsigned long int hits_ant = hits;
+		unsigned long int tag = (end_mem_list->info)/tam_block;
+		
+		acessos++; 
+	
+		for(i=0; i<num_lines; i++) {
+			
+			if (cache[tag][i] == '1') {// CACHE HIT
+				strcpy(miss_hit,"HIT");
+				hits++;
+				lru_list = remover_list_long_int(lru_list,i);
+				lru_list = inserir_final_list_long_int(lru_list,i);
+				break;
+			}
+		}
+		
+		if (hits_ant == hits) { // CACHE MISS
+			strcpy(miss_hit,"MISS");
+			miss++;
+			if (miss > num_lines) {				
+				quadro = lru_list->info;
+				lru_list = remover_list_long_int(lru_list,lru_list->info);
+				lru_list = inserir_final_list_long_int(lru_list,lru_list->info);
+				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
+				cache[tag][quadro] = '1';
+			} else {
+				lru_list = inserir_final_list_long_int(lru_list,miss-1);
+				cache[tag][miss-1] = '1';
+			}
+		}
+		
+		grava_saida("ASSOCIATIVO", "LRU", end_mem_list->info, miss_hit, num_lines, tam_block, num_block, 0, cache, arq_sai);
+		end_mem_list = end_mem_list->prox;
+	}
+	liberar_list_long_int(lru_list);	
+}
+
+void lfu(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache, FILE *arq_sai) {
+	
+	unsigned long int i;
+	
+	unsigned long int contador[num_lines];
+	for(i=0; i<num_lines; i++) contador[i] = 0;
+		
+	unsigned long int hits = 0;
+	unsigned long int miss = 0;
+	unsigned long int acessos = 0;
+	
+	while (end_mem_list) {
+		
+		char miss_hit[5];
+		unsigned long int quadro = 0;
+		unsigned long int hits_ant = hits;
+		unsigned long int tag = (end_mem_list->info)/tam_block;
+		
+		acessos++; 
+	
+		for(i=0; i<num_lines; i++) {
+			
+			if (cache[tag][i] == '1') {// CACHE HIT
+				strcpy(miss_hit,"HIT");
+				hits++;
+				contador[i]++;
+				break;
+			}
+		}
+	
+		if (hits_ant == hits) { // CACHE MISS
+			strcpy(miss_hit,"MISS");
+			miss++;
+			if (miss > num_lines) {				
+				unsigned long int max=0;
+				for(i=0; i<num_lines; i++)
+					if(contador[i] > max) {
+						max = contador[i];
+						quadro = i;
+					}
+				contador[quadro] = 0;
+				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
+				cache[tag][quadro] = '1';
+			} else {
+				contador[miss-1]++;;
+				cache[tag][miss-1] = '1';
+			}
+		}	
+		
+		grava_saida("ASSOCIATIVO", "LFU", end_mem_list->info, miss_hit, num_lines, tam_block, num_block, 0, cache, arq_sai);
+		end_mem_list = end_mem_list->prox;
+	}
+}
+
+void grava_saida(const char *mapeamento, const char *politica, unsigned long int endereco, char *miss_hit, unsigned long int num_lines, unsigned long int tam_block, unsigned long int num_block, unsigned long int tag_block, char **cache, FILE *arq_saida) {
+	
+	unsigned long int i, j;
+	char linha[200];
+	strcpy(linha,"");
+	
+	//int tamanho = (int)((ceil(log10(endereco+1))+1)*sizeof(char));
+	char str_end[11]; // [0, 4.294.967.295]
+	sprintf(str_end, "%lu", endereco);
+	
+	strcat(linha, mapeamento);
+	strcat(linha, "_");
+	strcat(linha, politica);
+	strcat(linha, "_");
+	strcat(linha, miss_hit);
+	strcat(linha, "_ENDER_");
+	strcat(linha, str_end);
+	strcat(linha, "\n");
+		
+	fputs(linha, arq_saida);
+	strcpy(linha, "");
+	
+	for(j=0; j<num_lines; j++) {
+		
+		strcat(linha, "{QUADRO_");
+		//tamanho = (int)((ceil(log10(j+1))+1)*sizeof(char));
+		char str_qdr[11]; // [0, 4.294.967.295]
+		sprintf(str_qdr, "%lu", j);
+		strcat(linha, str_qdr);
+		strcat(linha, "}");
+	
+		if(!strcmp(mapeamento,"DIRETO")) { // DIRETO_NONE_
+		
+			for(i=0; i<tag_block; i++) {
+				if (cache[i][j] == '1') {
+					unsigned long int end = i*tag_block + j*tam_block;
+					//tamanho = (int)((ceil(log10(end+tam_block+1))+1)*sizeof(char));
+					char str_end1[11], str_end2[11]; // [0, 4.294.967.295]
+					sprintf(str_end1, "%lu", end);
+					sprintf(str_end2, "%lu", end+tam_block-1);
+					strcat(linha, "[");
+					strcat(linha, str_end1);
+					strcat(linha, "-");
+					strcat(linha, str_end2);
+					strcat(linha, "]");
+				}
+			}
+	
+		} else if (!strcmp(mapeamento,"ASSOCIATIVO")) {
+		
+			for(i=0; i<num_block; i++) {
+				if (cache[i][j] == '1') {
+					unsigned long int end = i*tam_block;
+					//tamanho = (int)((ceil(log10(end+tam_block+1))+1)*sizeof(char));
+					char str_end1[11], str_end2[11]; // [0, 4.294.967.295]
+					sprintf(str_end1, "%lu", end);
+					sprintf(str_end2, "%lu", end+tam_block-1);
+					strcat(linha, "[");
+					strcat(linha, str_end1);
+					strcat(linha, "-");
+					strcat(linha, str_end2);
+					strcat(linha, "]");
+				}
+			}
+		
+		} else if (!strcmp(mapeamento,"ASSOCI_CONJ")) {
+
+		}
+		strcat(linha, "\n");
+		fputs(linha, arq_saida);
+		strcpy(linha, "");
+	}
 }
 
 TListChar * inserir_inicio_list_char (TListChar *lista, char info) {
@@ -267,312 +656,6 @@ void liberar_list_long_int (TListLongInt *lista) {
 		liberar_list_long_int (lista->prox);
 		free (lista);
 	}
-}
-
-void executa_map_dir (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
-
-	unsigned long int tam_cache = tam_block * num_lines;
-	unsigned long int num_block = tam_ram / tam_block;
-	unsigned long int tag_block = tam_ram / tam_cache;
-	char cache[tag_block][num_lines]; //char cache[tag_block][num_lines][tam_block];
-	unsigned long int hits = 0;
-	unsigned long int acessos = 0;
-	
-	unsigned long int i, j;
-	for(i=0; i<tag_block; i++)
-		for(j=0; j<num_lines; j++)
-			cache[i][j] = 0;
-
-	while (end_mem_list) {
-		
-		unsigned long int quadro = ((end_mem_list->info)/tam_block) % num_lines;
-		unsigned long int tag    = ((end_mem_list->info)/tam_block) / num_lines;
-		acessos++;
-		if (cache[tag][quadro] == '1') {// CACHE HIT
-			printf("HIT\n");
-			hits++;
-		}
-		else {// CACHE MISS
-			printf("MISS\n");
-			for(i=0; i<tag_block; i++) cache[i][quadro] = '0';
-			cache[tag][quadro] = '1'; 
-		}
-		
-		for(j=0; j<num_lines; j++) {
-			printf("quadro %lu: ",j);
-			for(i=0; i<tag_block; i++) {
-				if (cache[i][j] == '1') {
-					unsigned long int end = i*tag_block + j*tam_block;
-					printf("end. %lu a %lu", end, end+tam_block-1);
-				}
-			}
-			printf("\n");
-		}
-		
-		end_mem_list = end_mem_list->prox;
-	} 
-
-}
-
-void executa_map_assoc (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
-
-	unsigned long int tam_cache = tam_block * num_lines;
-	unsigned long int num_block = tam_ram / tam_block;
-	
-	unsigned long int i, j;
-	
-	char **cache_rand = (char **) malloc (num_block*sizeof(char *));
-	for(i=0; i<num_block; i++)
-		cache_rand[i] = (char *) malloc (num_lines*sizeof(char));
-	
-	char **cache_fifo = (char **) malloc (num_block*sizeof(char *));
-	for(i=0; i<num_block; i++)
-		cache_fifo[i] = (char *) malloc (num_lines*sizeof(char));
-	
-	char **cache_lru = (char **) malloc (num_block*sizeof(char *));
-	for(i=0; i<num_block; i++)
-		cache_lru[i] = (char *) malloc (num_lines*sizeof(char));
-	
-	char **cache_lfu = (char **) malloc (num_block*sizeof(char *));
-	for(i=0; i<num_block; i++)
-		cache_lfu[i] = (char *) malloc (num_lines*sizeof(char));
-		
-	for(i=0; i<num_block; i++)
-		for(j=0; j<num_lines; j++) {
-			cache_rand[i][j] = 0;
-			cache_fifo[i][j] = 0;
-			cache_lru[i][j]  = 0;
-			cache_lfu[i][j]  = 0;
-		}
-	
-	randomico(end_mem_list, tam_block, num_lines, num_block, cache_rand);
-	fifo(end_mem_list, tam_block, num_lines, num_block, cache_fifo);
-	lru(end_mem_list, tam_block, num_lines, num_block, cache_lfu);
-	lfu(end_mem_list, tam_block, num_lines, num_block, cache_lru);
-	
-	for(i=0; i<num_block; i++) {
-		free(cache_rand[i]);
-		free(cache_fifo[i]);
-		free(cache_lru[i]);
-		free(cache_lfu[i]);
-	}
-	free(cache_rand);
-	free(cache_fifo);
-	free(cache_lru);
-	free(cache_lfu);
-}
-
-void executa_map_assoc_conj (TListLongInt *end_mem_list, unsigned long int tam_ram, unsigned long int tam_block, unsigned long int num_lines) {
-
-}
-
-void randomico(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache) {
-
-	unsigned long int i;
-
-	unsigned long int hits = 0;
-	unsigned long int miss = 0;
-	unsigned long int acessos = 0;
-
-	while (end_mem_list) {
-
-		unsigned long int quadro = 0;
-		unsigned long int hits_ant = hits;
-		unsigned long int tag = (end_mem_list->info)/tam_block;
-	
-		acessos++; 
-	
-		for(i=0; i<num_lines; i++) {
-			
-			if (cache[tag][i] == '1') {// CACHE HIT
-				printf("HIT\n");
-				hits++;
-				break;
-			}
-		}
-	
-		if (hits_ant == hits) { // CACHE MISS
-			printf("MISS\n");
-			miss++;
-			if (miss > num_lines) {
-				quadro = rand()%num_lines;
-				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
-				cache[tag][quadro] = '1';
-			} else {
-				cache[tag][miss-1] = '1';
-			}
-		}	
-		
-		grava_saida("RANDOM", num_lines, num_block, tam_block, cache);
-		end_mem_list = end_mem_list->prox;
-	} 
-}
-
-void fifo(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache) {
-	
-	TFila *fila = inicializa_fila();
-	
-	unsigned long int i;
-	
-	unsigned long int hits = 0;
-	unsigned long int miss = 0;
-	unsigned long int acessos = 0;
-
-	while (end_mem_list) {
-		
-		unsigned long int quadro = 0;
-		unsigned long int hits_ant = hits;
-		unsigned long int tag = (end_mem_list->info)/tam_block;
-		
-		acessos++; 
-	
-		for(i=0; i<num_lines; i++) {
-			
-			if (cache[tag][i] == '1') {// CACHE HIT
-				printf("HIT\n");
-				hits++;
-				break;
-			}
-		}
-		
-		if (hits_ant == hits) { // CACHE MISS
-			printf("MISS\n");
-			miss++;
-			if (miss > num_lines) {
-				quadro = retira(fila);
-				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
-				cache[tag][quadro] = '1';
-				insere(fila, quadro);
-			} else {
-				cache[tag][miss-1] = '1';
-				insere(fila, miss-1);
-			}
-		}
-		
-		grava_saida("FIFO", num_lines, num_block, tam_block, cache);
-		end_mem_list = end_mem_list->prox;
-	}
-	libera_fila(fila);
-}
-
-void lru(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache) {
-	
-	TListLongInt *lru_list = NULL;
-	
-	unsigned long int i;
-	
-	unsigned long int hits = 0;
-	unsigned long int miss = 0;
-	unsigned long int acessos = 0;
-
-	while (end_mem_list) {
-		
-		unsigned long int quadro = 0;
-		unsigned long int hits_ant = hits;
-		unsigned long int tag = (end_mem_list->info)/tam_block;
-		
-		acessos++; 
-	
-		for(i=0; i<num_lines; i++) {
-			
-			if (cache[tag][i] == '1') {// CACHE HIT
-				printf("HIT\n");
-				hits++;
-				lru_list = remover_list_long_int(lru_list,i);
-				lru_list = inserir_final_list_long_int(lru_list,i);
-				break;
-			}
-		}
-		
-		if (hits_ant == hits) { // CACHE MISS
-			printf("MISS\n");
-			miss++;
-			if (miss > num_lines) {				
-				quadro = lru_list->info;
-				lru_list = remover_list_long_int(lru_list,lru_list->info);
-				lru_list = inserir_final_list_long_int(lru_list,lru_list->info);
-				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
-				cache[tag][quadro] = '1';
-			} else {
-				lru_list = inserir_final_list_long_int(lru_list,miss-1);
-				cache[tag][miss-1] = '1';
-			}
-		}
-		
-		grava_saida("LRU", num_lines, num_block, tam_block, cache);
-		end_mem_list = end_mem_list->prox;
-	}
-	liberar_list_long_int(lru_list);	
-}
-
-void lfu(TListLongInt *end_mem_list, unsigned long int tam_block, unsigned long int num_lines, unsigned long int num_block, char **cache) {
-	
-	unsigned long int i;
-	
-	unsigned long int contador[num_lines];
-	for(i=0; i<num_lines; i++) contador[i] = 0;
-		
-	unsigned long int hits = 0;
-	unsigned long int miss = 0;
-	unsigned long int acessos = 0;
-	
-	while (end_mem_list) {
-		
-		unsigned long int quadro = 0;
-		unsigned long int hits_ant = hits;
-		unsigned long int tag = (end_mem_list->info)/tam_block;
-		
-		acessos++; 
-	
-		for(i=0; i<num_lines; i++) {
-			
-			if (cache[tag][i] == '1') {// CACHE HIT
-				printf("HIT\n");
-				hits++;
-				contador[i]++;
-				break;
-			}
-		}
-	
-		if (hits_ant == hits) { // CACHE MISS
-			printf("MISS\n");
-			miss++;
-			if (miss > num_lines) {				
-				unsigned long int max=0;
-				for(i=0; i<num_lines; i++)
-					if(contador[i] > max) {
-						max = contador[i];
-						quadro = i;
-					}
-				contador[quadro] = 0;
-				for(i=0; i<num_block; i++) cache[i][quadro] = '0';
-				cache[tag][quadro] = '1';
-			} else {
-				contador[miss-1]++;;
-				cache[tag][miss-1] = '1';
-			}
-		}	
-	
-		grava_saida("LFU", num_lines, num_block, tam_block, cache);
-		end_mem_list = end_mem_list->prox;
-	}
-	
-}
-
-void grava_saida(const char *politica, unsigned long int num_lines, unsigned long int tag_block, unsigned long int tam_block, char **cache) {
-	
-	unsigned long int i, j;
-	printf("%s\n", politica);
-	for(j=0; j<num_lines; j++) {
-		printf("quadro %lu: ",j);
-		for(i=0; i<tag_block; i++) {
-			if (cache[i][j] == '1') {
-				unsigned long int end = (i*tam_block);
-				printf("end. %lu a %lu", end, end+tam_block-1);
-			}
-		}
-		printf("\n");
-	}	
 }
 
 TFila* inicializa_fila (void) { 
